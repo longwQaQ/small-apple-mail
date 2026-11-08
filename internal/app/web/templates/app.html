@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="system" data-density="compact">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>小苹果邮箱</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg?v=1.1.0">
+  <link rel="stylesheet" href="/assets/ui.css?v=1.2.2">
+  <script type="module" src="/assets/app.js?v=1.2.1"></script>
+</head>
+<body class="app-page">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard" aria-label="小苹果邮箱首页"><span class="brand-logo" aria-hidden="true"><img src="/assets/logo.svg?v=1.1.0" alt=""></span><span class="brand-name">小苹果邮箱<small>PRIVACY MAIL</small></span></a>
+      <nav class="primary-nav" aria-label="主导航">
+        <a href="#dashboard" data-route="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span>仪表盘</span></a>
+        <a href="#accounts" data-route="accounts"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><path d="M3 21a6 6 0 0 1 12 0M16 7h5M18.5 4.5v5"/></svg><span>账号连接</span></a>
+        <a href="#mailboxes" data-route="mailboxes"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 8l8 6 8-6"/></svg><span>邮箱池</span></a>
+        <a href="#inbox" data-route="inbox"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 13h5l2 3h2l2-3h5"/></svg><span>收件箱</span></a>
+        <a href="#automations" data-route="automations"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/><circle cx="12" cy="12" r="4"/></svg><span>自动化</span></a>
+        <a href="#api-clients" data-route="api-clients"><svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M15 4h4v4"/></svg><span>API 客户端</span></a>
+        <a href="#activity" data-route="activity"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-7"/></svg><span>活动</span></a>
+        <a href="#settings" data-route="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg><span>设置</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="account-button" type="button" data-action="open-account-menu"><span class="avatar">A</span><span><strong id="admin-name">管理员</strong><small>本地控制台</small></span><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+      </div>
+    </aside>
+    <section class="workspace">
+      <header class="topbar">
+        <div><p class="eyebrow" id="page-eyebrow">OVERVIEW</p><h1 id="page-title">仪表盘</h1><p id="page-subtitle" class="muted">查看连接、邮箱池和自动化运行状态。</p></div>
+        <div class="topbar-actions">
+          <span id="connection-indicator" class="connection-indicator"><i></i><span>正在连接</span></span>
+          <button class="icon-button" type="button" data-action="refresh" aria-label="刷新当前页面"><svg viewBox="0 0 24 24"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6 6.5L4 9M5.5 15A7 7 0 0 0 18 17.5l2-2.5"/></svg></button>
+          <button class="button primary task-button" type="button" data-action="create-mailboxes">创建邮箱</button>
+        </div>
+      </header>
+      <main id="page-content" class="page-content" tabindex="-1"><div class="page-skeleton"><span></span><span></span><span></span></div></main>
+    </section>
+  </div>
+  <nav class="mobile-nav" aria-label="移动端主导航">
+    <a href="#dashboard" data-route="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span>概览</span></a>
+    <a href="#accounts" data-route="accounts"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="4"/><path d="M3 21a6 6 0 0 1 12 0M16 7h5M18.5 4.5v5"/></svg><span>账号</span></a>
+    <a href="#mailboxes" data-route="mailboxes"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 8l8 6 8-6"/></svg><span>邮箱</span></a>
+    <a href="#automations" data-route="automations"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>任务</span></a>
+    <button type="button" data-action="open-more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>更多</span></button>
+  </nav>
+  <dialog id="app-dialog" class="dialog" aria-labelledby="dialog-title"><div class="dialog-frame"><header><div><p class="eyebrow">ACTION</p><h2 id="dialog-title">操作</h2></div><button class="icon-button" type="button" data-action="close-dialog" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header><div id="dialog-content" class="dialog-content"></div><footer id="dialog-actions"></footer></div></dialog>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

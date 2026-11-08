@@ -1,0 +1,45 @@
+package events
+
+import (
+	"testing"
+	"time"
+)
+
+func TestHubHistoryReconnectAndSlowSubscriber(t *testing.T) {
+	hub := New()
+	first := hub.Publish("job.created", map[string]string{"id": "one"})
+	second := hub.Publish("job.progress", map[string]string{"id": "one"})
+	ch, unsubscribe := hub.Subscribe(first.ID)
+	defer unsubscribe()
+	select {
+	case event := <-ch:
+		if event.ID != second.ID || event.Type != "job.progress" {
+			t.Fatalf("event=%+v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("没有收到重连历史")
+	}
+
+	slow, closeSlow := hub.Subscribe(0)
+	defer closeSlow()
+	started := time.Now()
+	for i := 0; i < 700; i++ {
+		hub.Publish("burst", i)
+	}
+	if time.Since(started) > time.Second {
+		t.Fatal("慢订阅者阻塞了发布")
+	}
+	_ = slow
+	if len(hub.history) != 500 {
+		t.Fatalf("history=%d", len(hub.history))
+	}
+	reconnected, closeReconnected := hub.Subscribe(0)
+	defer closeReconnected()
+	for i := 0; i < 500; i++ {
+		select {
+		case <-reconnected:
+		case <-time.After(time.Second):
+			t.Fatalf("重连历史在第 %d 条阻塞", i)
+		}
+	}
+}
