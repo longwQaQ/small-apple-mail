@@ -10,8 +10,15 @@ import (
 	"small-apple-mail/internal/app/security"
 )
 
+// accountID 为空时批量读取全部连接，供账号列表使用。
 func (s *Store) ListConnections(ctx context.Context, accountID string) ([]domain.Connection, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,account_id,kind,status,host,last_checked_at,expires_at,next_check_at,consecutive_failures,status_message,created_at,updated_at FROM account_connections WHERE account_id=? ORDER BY kind`, accountID)
+	query := `SELECT id,account_id,kind,status,host,last_checked_at,expires_at,next_check_at,consecutive_failures,status_message,created_at,updated_at FROM account_connections`
+	var args []any
+	if accountID != "" {
+		query += " WHERE account_id=?"
+		args = append(args, accountID)
+	}
+	rows, err := s.db.QueryContext(ctx, query+" ORDER BY account_id,kind", args...)
 	if err != nil {
 		return nil, err
 	}

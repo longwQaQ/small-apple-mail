@@ -27,9 +27,11 @@ func (h *Hub) Publish(kind string, value any) Event {
 	h.mu.Lock()
 	h.nextID++
 	e := Event{ID: h.nextID, Type: kind, Data: data, At: time.Now().UTC()}
-	h.history = append(h.history, e)
-	if len(h.history) > 500 {
-		h.history = append([]Event(nil), h.history[len(h.history)-500:]...)
+	if len(h.history) == 500 {
+		copy(h.history, h.history[1:])
+		h.history[len(h.history)-1] = e
+	} else {
+		h.history = append(h.history, e)
 	}
 	for ch := range h.clients {
 		select {
@@ -45,9 +47,12 @@ func (h *Hub) Subscribe(after int64) (chan Event, func()) {
 	// 缓冲区必须覆盖完整历史窗口，避免重连时在持锁状态下写满并阻塞。
 	ch := make(chan Event, 512)
 	h.mu.Lock()
-	for _, e := range h.history {
-		if e.ID > after {
-			ch <- e
+	// 首次订阅只接收新事件；携带游标的重连才补发历史。
+	if after > 0 {
+		for _, e := range h.history {
+			if e.ID > after {
+				ch <- e
+			}
 		}
 	}
 	h.clients[ch] = struct{}{}

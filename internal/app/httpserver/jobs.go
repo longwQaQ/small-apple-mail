@@ -19,7 +19,6 @@ func (s *Server) jobs(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		cutoff := time.Now().UTC().Add(-24 * time.Hour)
-		_, _ = s.store.DeleteJobsBefore(r.Context(), cutoff)
 		rows, next, err := s.store.ListJobsPage(r.Context(), r.URL.Query().Get("cursor"), cutoff, limit)
 		if err != nil {
 			if errors.Is(err, repository.ErrNotFound) {

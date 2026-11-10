@@ -580,6 +580,13 @@ func TestScheduleCRUDAndRun(t *testing.T) {
 func TestJobsArePaginatedWithinTwentyFourHours(t *testing.T) {
 	server, store := testServer(t)
 	cookie, _ := login(t, server)
+	old, err := store.CreateJob(context.Background(), "database.integrity_check", "{}", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.DB().Exec("UPDATE jobs SET status='succeeded',created_at=? WHERE id=?", time.Now().UTC().Add(-48*time.Hour).Format(time.RFC3339Nano), old.ID); err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 25; i++ {
 		if _, err := store.CreateJob(context.Background(), "database.integrity_check", "{}", 0); err != nil {
 			t.Fatal(err)
@@ -609,6 +616,9 @@ func TestJobsArePaginatedWithinTwentyFourHours(t *testing.T) {
 	_ = json.Unmarshal(out.Data, &second)
 	if len(second.Items) != 5 || second.NextCursor != "" {
 		t.Fatalf("second=%+v", second)
+	}
+	if _, err := store.Job(context.Background(), old.ID); err != nil {
+		t.Fatalf("读取任务列表不应执行后台清理：%v", err)
 	}
 }
 

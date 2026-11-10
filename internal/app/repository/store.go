@@ -341,11 +341,19 @@ func (s *Store) ListAccounts(ctx context.Context) ([]domain.Account, error) {
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
+	if len(out) == 0 {
+		return out, nil
+	}
+	connections, err := s.ListConnections(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	byAccount := make(map[string][]domain.Connection, len(out))
+	for _, connection := range connections {
+		byAccount[connection.AccountID] = append(byAccount[connection.AccountID], connection)
+	}
 	for i := range out {
-		out[i].Connections, err = s.ListConnections(ctx, out[i].ID)
-		if err != nil {
-			return nil, err
-		}
+		out[i].Connections = byAccount[out[i].ID]
 	}
 	return out, nil
 }
@@ -538,11 +546,27 @@ func (s *Store) ListAPIClients(ctx context.Context) ([]domain.APIClient, error) 
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	for i := range out {
-		out[i].Scopes, err = s.apiClientScopes(ctx, out[i].ID)
-		if err != nil {
+	if len(out) == 0 {
+		return out, nil
+	}
+	scopeRows, err := s.db.QueryContext(ctx, "SELECT api_client_id,scope FROM api_client_scopes ORDER BY api_client_id,scope")
+	if err != nil {
+		return nil, err
+	}
+	defer scopeRows.Close()
+	byClient := make(map[string][]string, len(out))
+	for scopeRows.Next() {
+		var id, scope string
+		if err := scopeRows.Scan(&id, &scope); err != nil {
 			return nil, err
 		}
+		byClient[id] = append(byClient[id], scope)
+	}
+	if err := scopeRows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Scopes = byClient[out[i].ID]
 	}
 	return out, nil
 }

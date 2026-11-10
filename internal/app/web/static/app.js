@@ -12,11 +12,11 @@ const routeMeta = {
   mailboxes:['MAILBOX POOL','邮箱池','搜索、筛选和维护 Hide My Email 地址。'], automations:['JOBS & SCHEDULES','自动化','跟踪持久化任务和定时计划。'],
   'api-clients':['EXTERNAL ACCESS','API 客户端','创建具名密钥、配置权限并查看调用情况。'], activity:['AUDIT TRAIL','活动','查看任务事件、审计记录和系统告警。'], settings:['PREFERENCES','设置','管理安全、留存、任务和界面偏好。']
 };
-let currentRoute = ''; let mailboxCursor = ''; let mailboxAbort = null; let jobsCache = []; let mailboxFilters = {query:'',status:'',account_id:''}; let mailboxCursorStack=['']; let mailboxPageIndex=0; let jobCursorStack = ['']; let jobPageIndex = 0; let activityPage=1;
+let currentRoute = ''; let mailboxCursor = ''; let mailboxAbort = null; let mailboxFilters = {query:'',status:'',account_id:''}; let mailboxCursorStack=['']; let mailboxPageIndex=0; let jobCursorStack = ['']; let jobPageIndex = 0; let activityPage=1;
 let inboxPage=1; let inboxFilters={query:'',account_id:'',kind:''};
 let pageVersion = 0;
 let renderVersion = 0;
-let jobsRefreshTimer = 0; let jobsRefreshRunning = false; let jobsRefreshPending = false;
+let pageRefreshTimer = 0;
 
 
 const svg = name => icons[name];
@@ -40,7 +40,24 @@ async function loadPage(name,load){
     throw error;
   }
 }
-async function navigate(){const name=route();const version=++pageVersion;if(currentRoute&&currentRoute!==name){resetPageState(currentRoute);closeDialog()}currentRoute=name;setRouteState(name);content.scrollTop=0;loading();try{await renderers[name]();if(isCurrentPage(name,version))content.focus({preventScroll:true})}catch(error){if(isAbort(error)||!isCurrentPage(name,version))return;pageLoadError(error);toast(error.message,'bad')}}
+async function navigate(){
+  clearTimeout(pageRefreshTimer);
+  const name=route();
+  const version=++pageVersion;
+  if(currentRoute&&currentRoute!==name){resetPageState(currentRoute);closeDialog()}
+  currentRoute=name;
+  setRouteState(name);
+  content.scrollTop=0;
+  loading();
+  try{
+    await renderers[name]();
+    if(isCurrentPage(name,version))content.focus({preventScroll:true});
+  }catch(error){
+    if(isAbort(error)||!isCurrentPage(name,version))return;
+    pageLoadError(error);
+    toast(error.message,'bad');
+  }
+}
 
 async function renderDashboard(){const result=await loadPage('dashboard',()=>api.dashboard());if(!result?.current())return;const d=result.data;const availability=d.mailboxes?Math.round(d.available_mailboxes/d.mailboxes*100):0;content.innerHTML=`<section class="metric-grid">${metric(svg('account'),d.accounts,'Apple 账号',`${d.account_issues} 个需要处理`)}${metric(svg('mail'),d.available_mailboxes,'可用邮箱',`邮箱池共 ${d.mailboxes} 个`)}${metric(svg('lease'),d.active_leases,'活动租约',`${d.leased_mailboxes} 个邮箱租用中`)}${metric(svg('job'),d.messages_24h,'24 小时取码',`可用率 ${availability}%`)}</section><section class="dashboard-layout"><article class="panel"><div class="panel-header"><div><h2>快捷操作</h2><p>从常用入口开始，不必在栏目之间来回查找。</p></div></div><div class="quick-action-grid"><a class="quick-action" href="#accounts">${svg('account')}<span><strong>管理账号连接</strong><small>连接邮箱管理与收件</small></span></a><button class="quick-action" type="button" data-action="create-mailboxes">${svg('mail')}<span><strong>创建隐私邮箱</strong><small>优先使用 iCloud 邮箱管理</small></span></button><a class="quick-action" href="#mailboxes">${svg('mail')}<span><strong>维护邮箱池</strong><small>搜索、编辑、同步与删除</small></span></a><a class="quick-action" href="#api-clients">${svg('lease')}<span><strong>配置 API 客户端</strong><small>分配租约与取码权限</small></span></a></div></article><article class="panel"><div class="panel-header"><div><h2>运行概览</h2><p>连接、邮箱池和后台执行器的实时摘要。</p></div></div><div class="dashboard-list"><div class="dashboard-row"><span>邮箱分布</span><strong>${d.available_mailboxes} 可用 · ${d.leased_mailboxes} 租用 · ${d.disabled_mailboxes||0} 停用</strong></div><div class="dashboard-row"><span>远端一致性</span><strong>${d.remote_missing_mailboxes||0} 个远端缺失</strong></div><div class="dashboard-row"><span>IMAP 连接</span><strong>${d.healthy_imap_connections||0} / ${d.configured_imap_connections||0} 健康</strong></div><div class="dashboard-row"><span>后台任务</span><strong>${d.running_jobs} 运行 · ${d.failed_jobs} 失败</strong></div><div class="dashboard-row"><span>下次计划</span><strong>${d.next_schedule_name?`${escapeHTML(d.next_schedule_name)} · ${formatTime(d.next_schedule_at)}`:'尚未配置'}</strong></div></div></article></section>`}
 
@@ -77,9 +94,8 @@ function downloadMailboxExport(rows,format){let content='';let mime='text/plain;
 async function renderAutomations(reset=false){
  if(currentRoute!=='automations'||route()!=='automations')return;if(reset){jobCursorStack=[''];jobPageIndex=0}
  const cursor=jobCursorStack[jobPageIndex]||'';const result=await loadPage('automations',()=>Promise.all([api.jobs(cursor?{cursor}:{}),api.schedules()]));if(!result?.current())return;
- const [page,schedules]=result.data;jobsCache=page.items||[];updateJobCounts();content.innerHTML=renderAutomationWorkspace(jobsCache,schedules,jobPageIndex,page.next_cursor||'');
+ const [page,schedules]=result.data;content.innerHTML=renderAutomationWorkspace(page.items||[],schedules,jobPageIndex,page.next_cursor||'');
 }
-function updateJobCounts(){}
 
 async function renderClients(){const result=await loadPage('api-clients',()=>api.clients());if(!result?.current())return;const clients=result.data;const active=clients.filter(c=>c.status==='active').length;const used=clients.filter(c=>c.last_used_at&&!String(c.last_used_at).startsWith('0001-')).length;content.innerHTML=`<section class="client-hero"><div><h2>客户端管理</h2><p>按客户端隔离密钥与权限；完整 Key 仅展示一次，服务端只保存不可逆哈希。</p></div><button class="button primary" type="button" data-action="add-client">创建 API 客户端</button></section><section class="client-stats"><div><strong>${clients.length}</strong><span>客户端总数</span></div><div><strong>${active}</strong><span>正在启用</span></div><div><strong>${used}</strong><span>已有调用</span></div></section><div class="client-layout"><section><div class="section-heading"><div><h2>客户端</h2><p>管理访问状态、权限范围和 Key 生命周期。</p></div></div><div class="client-grid">${clients.length?clients.map(clientCard).join(''):emptyState('还没有 API 客户端','创建具名 Key 后，外部程序才能申请临时租约。','<button class="button primary" type="button" data-action="add-client">创建客户端</button>')}</div></section><aside class="api-guide"><div class="api-guide-head"><span>${svg('lease')}</span><div><h2>快速接入</h2><p>租约 API 使用双重凭据校验。</p></div></div><ol><li><span>1</span><div><strong>携带 API Key</strong><small>通过 Bearer Authorization 传入</small></div></li><li><span>2</span><div><strong>提供幂等键</strong><small>避免网络重试重复创建租约</small></div></li><li><span>3</span><div><strong>保存租约秘密</strong><small>后续查询与取码时一并验证</small></div></li></ol><pre><code>Authorization: Bearer sam_live_xxx\nIdempotency-Key: unique-request-id\n\nPOST /api/leases</code></pre><a class="button wide" href="/api/openapi.json" target="_blank" rel="noopener">查看 OpenAPI 3.1 文档</a></aside></div>`}
 function clientCard(c){const scopeNames={'leases:read':'读取租约','leases:write':'管理租约','codes:read':'读取验证码'};return `<article class="client-card"><header><div class="client-identity"><span>${escapeHTML((c.name||'A')[0].toUpperCase())}</span><div><h3>${escapeHTML(c.name)}</h3><code>${escapeHTML(c.key_prefix)}••••••••</code></div></div>${statusBadge(c.status)}</header><div class="client-scopes"><span>权限范围</span><div>${c.scopes.map(s=>`<span class="scope-chip">${escapeHTML(scopeNames[s]||s)}<small>${escapeHTML(s)}</small></span>`).join('')}</div></div><dl><div><dt>最后使用</dt><dd>${formatTime(c.last_used_at)}</dd></div><div><dt>创建时间</dt><dd>${formatTime(c.created_at)}</dd></div></dl><footer><button class="button compact" type="button" data-action="rotate-client" data-client="${c.id}">轮换 Key</button><button class="button compact" type="button" data-action="toggle-client" data-client="${c.id}" data-status="${c.status==='active'?'disabled':'active'}">${c.status==='active'?'停用':'启用'}</button><button class="button compact danger" type="button" data-action="delete-client" data-client="${c.id}" data-name="${escapeHTML(c.name)}">删除</button></footer></article>`}
@@ -186,14 +202,46 @@ window.addEventListener('hashchange',navigate);
 
 function applyAppearance(){const old=localStorage.getItem('sam.theme');const theme=['light','dark','system'].includes(old)?old:(['midnight','obsidian','aurora'].includes(old)?'dark':'system');const density=localStorage.getItem('sam.density')==='comfortable'?'comfortable':'compact';document.documentElement.dataset.theme=theme;document.documentElement.dataset.density=density;syncAppearanceButtons()}
 function syncAppearanceButtons(){document.querySelectorAll('[data-theme-value]').forEach(n=>n.classList.toggle('active',n.dataset.themeValue===document.documentElement.dataset.theme));document.querySelectorAll('[data-density-value]').forEach(n=>n.classList.toggle('active',n.dataset.densityValue===document.documentElement.dataset.density))}
-function connectEvents(){const indicator=document.querySelector('#connection-indicator');const source=new EventSource('/api/admin/events');source.onopen=()=>{indicator.classList.add('online');indicator.querySelector('span').textContent='实时连接'};source.onerror=()=>{indicator.classList.remove('online');indicator.querySelector('span').textContent='正在重连'};source.addEventListener('connection.changed',scheduleConnectionRefresh);source.addEventListener('mailbox.changed',scheduleConnectionRefresh);source.addEventListener('job.created',scheduleJobsRefresh);source.addEventListener('job.progress',scheduleJobsRefresh);source.addEventListener('job.completed',()=>{scheduleJobsRefresh();if(currentRoute==='dashboard')renderDashboard().catch(()=>{})})}
-function scheduleJobsRefresh(){clearTimeout(jobsRefreshTimer);jobsRefreshTimer=setTimeout(refreshJobs,300)}
-async function refreshJobs(){if(jobsRefreshRunning){jobsRefreshPending=true;return}jobsRefreshRunning=true;try{do{jobsRefreshPending=false;if(currentRoute==='automations'){await renderAutomations(false)}else{const page=await api.jobs({limit:'100'});jobsCache=page.items||[];updateJobCounts()}}while(jobsRefreshPending)}catch{}finally{jobsRefreshRunning=false}}
+function connectEvents(){
+  const indicator=document.querySelector('#connection-indicator');
+  const source=new EventSource('/api/admin/events');
+  source.onopen=()=>{indicator.classList.add('online');indicator.querySelector('span').textContent='实时连接'};
+  source.onerror=()=>{indicator.classList.remove('online');indicator.querySelector('span').textContent='正在重连'};
+  const pages={
+    'connection.changed':['dashboard','accounts','mailboxes','inbox'],
+    'mailbox.changed':['dashboard','mailboxes','inbox'],
+    'lease.changed':['dashboard','mailboxes'],
+    'job.created':['dashboard','automations'],
+    'job.progress':['dashboard','automations'],
+    'job.completed':['dashboard','automations'],
+    'system.notice':['dashboard','automations','mailboxes','inbox']
+  };
+  for(const [type,routes] of Object.entries(pages))source.addEventListener(type,()=>{if(routes.includes(currentRoute))schedulePageRefresh()});
+}
+function schedulePageRefresh(){
+  const name=currentRoute;
+  const page=pageVersion;
+  const refresh={dashboard:renderDashboard,accounts:renderAccounts,inbox:renderInbox,mailboxes:()=>renderMailboxes(false),automations:()=>renderAutomations(false)}[name];
+  if(!refresh)return;
+  clearTimeout(pageRefreshTimer);
+  pageRefreshTimer=setTimeout(()=>{
+    if(!isCurrentPage(name,page)||document.querySelector('#app-dialog').open)return;
+    refresh().catch(()=>{});
+  },250);
+}
 
-async function bootstrap(){applyAppearance();try{const session=await api.session();setCSRF(session.csrf_token);document.querySelector('#admin-name').textContent=session.admin.username;connectEvents();if(!location.hash)location.hash='#dashboard';else await navigate();if(currentRoute!=='automations')await refreshJobs()}catch{location.replace('/login')}}
+async function bootstrap(){
+  applyAppearance();
+  try{
+    const session=await api.session();
+    setCSRF(session.csrf_token);
+    document.querySelector('#admin-name').textContent=session.admin.username;
+    connectEvents();
+    if(!location.hash)location.hash='#dashboard';
+    else await navigate();
+  }catch{location.replace('/login')}
+}
 bootstrap();
 
-let connectionRefreshTimer=0;
-function scheduleConnectionRefresh(){clearTimeout(connectionRefreshTimer);connectionRefreshTimer=setTimeout(()=>{if(document.querySelector('#app-dialog')?.open)return;if(currentRoute==='inbox')renderInbox().catch(()=>{});else if(currentRoute==='accounts')renderAccounts().catch(()=>{});else if(currentRoute==='dashboard')renderDashboard().catch(()=>{})},250)}
 document.addEventListener('change',event=>{if(event.target.matches('#create-mailbox-job select[name=strategy]'))updateCreationChoices(event.target.form)});
-document.querySelector('#app-dialog')?.addEventListener('close',scheduleConnectionRefresh);
+document.querySelector('#app-dialog').addEventListener('close',schedulePageRefresh);
